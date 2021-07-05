@@ -238,6 +238,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     public void openForTraffic(ApplicationInfoManager applicationInfoManager, int count) {
         // Renewals happen every 30 seconds and for a minute it should be a factor of 2.
         this.expectedNumberOfClientsSendingRenews = count;
+        // 更新期望每分钟收到客户端实例续约的总数：2 × n × 0.85
         updateRenewsPerMinThreshold();
         logger.info("Got {} instances from neighboring DS node", count);
         logger.info("Renew threshold is: {}", numberOfRenewsPerMinThreshold);
@@ -245,6 +246,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         if (count > 0) {
             this.peerInstancesTransferEmptyOnStartup = false;
         }
+        // 数据中心信息名
         DataCenterInfo.Name selfName = applicationInfoManager.getInfo().getDataCenterInfo().getName();
         boolean isAws = Name.Amazon == selfName;
         if (isAws && serverConfig.shouldPrimeAwsReplicaConnections()) {
@@ -252,7 +254,9 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
             primeAwsReplicas(applicationInfoManager);
         }
         logger.info("Changing status to UP");
+        // 设置应用激活状态
         applicationInfoManager.setInstanceStatus(InstanceStatus.UP);
+        // 调用父级的后置初始化方法：哨兵初始化
         super.postInit();
     }
 
@@ -396,11 +400,14 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      */
     @Override
     public void register(final InstanceInfo info, final boolean isReplication) {
+        // 获取租赁期限，默认90s
         int leaseDuration = Lease.DEFAULT_DURATION_IN_SECS;
         if (info.getLeaseInfo() != null && info.getLeaseInfo().getDurationInSecs() > 0) {
             leaseDuration = info.getLeaseInfo().getDurationInSecs();
         }
+        // 处理注册实例
         super.register(info, leaseDuration, isReplication);
+        // 将实例信息复制给其他仲裁成员-集群信息同步
         replicateToPeers(Action.Register, info.getAppName(), info.getId(), info, null, isReplication);
     }
 

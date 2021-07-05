@@ -131,6 +131,7 @@ public class ApplicationResource {
     }
 
     /**
+     * 注册实例方法
      * Registers information about a particular instance for an
      * {@link com.netflix.discovery.shared.Application}.
      *
@@ -163,6 +164,7 @@ public class ApplicationResource {
         }
 
         // handle cases where clients may be registering with bad DataCenterInfo with missing data
+        // 获取数据中心信息
         DataCenterInfo dataCenterInfo = info.getDataCenterInfo();
         if (dataCenterInfo instanceof UniqueIdentifier) {
             String dataCenterInfoId = ((UniqueIdentifier) dataCenterInfo).getId();
@@ -183,6 +185,7 @@ public class ApplicationResource {
             }
         }
 
+        // 注册器注册方法
         registry.register(info, "true".equals(isReplication));
         return Response.status(204).build();  // 204 to be backwards compatible
     }

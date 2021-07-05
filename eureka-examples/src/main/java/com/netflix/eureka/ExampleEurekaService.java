@@ -60,10 +60,12 @@ public class ExampleEurekaService {
 
         DynamicPropertyFactory configInstance = com.netflix.config.DynamicPropertyFactory.getInstance();
         ApplicationInfoManager applicationInfoManager = initializeApplicationInfoManager(new MyDataCenterInstanceConfig());
+        // 初始化Eureka客户端
         EurekaClient eurekaClient = initializeEurekaClient(applicationInfoManager, new DefaultEurekaClientConfig());
-
+        // 创建一个示例Eureka基础服务
         ExampleServiceBase exampleServiceBase = new ExampleServiceBase(applicationInfoManager, eurekaClient, configInstance);
         try {
+            // 启动Eureka基础服务
             exampleServiceBase.start();
         } finally {
             // the stop calls shutdown on eurekaClient

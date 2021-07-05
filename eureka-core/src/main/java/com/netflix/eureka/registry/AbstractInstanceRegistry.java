@@ -192,7 +192,9 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
      */
     public void register(InstanceInfo registrant, int leaseDuration, boolean isReplication) {
         try {
+            // 加读锁
             read.lock();
+            // 根据服务名称，从注册表中获取服务注册信息
             Map<String, Lease<InstanceInfo>> gMap = registry.get(registrant.getAppName());
             REGISTER.increment(isReplication);
             if (gMap == null) {
@@ -202,8 +204,10 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                     gMap = gNewMap;
                 }
             }
+            // 根据实例ID，从服务注册信息中获取租债对象
             Lease<InstanceInfo> existingLease = gMap.get(registrant.getId());
             // Retain the last dirty timestamp without overwriting it, if there is already a lease
+            // 是否已经存在实例对应的租债对象
             if (existingLease != null && (existingLease.getHolder() != null)) {
                 Long existingLastDirtyTimestamp = existingLease.getHolder().getLastDirtyTimestamp();
                 Long registrationLastDirtyTimestamp = registrant.getLastDirtyTimestamp();
@@ -223,16 +227,21 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                     if (this.expectedNumberOfClientsSendingRenews > 0) {
                         // Since the client wants to register it, increase the number of clients sending renews
                         this.expectedNumberOfClientsSendingRenews = this.expectedNumberOfClientsSendingRenews + 1;
+                        // 更新期望每分钟收到客户端实例续约的总数
                         updateRenewsPerMinThreshold();
                     }
                 }
                 logger.debug("No previous lease information found; it is new registration");
             }
+            // 创建租债对象
             Lease<InstanceInfo> lease = new Lease<InstanceInfo>(registrant, leaseDuration);
             if (existingLease != null) {
+                // 设置租债器服务更新时间
                 lease.setServiceUpTimestamp(existingLease.getServiceUpTimestamp());
             }
+            // 将租债对象，更新放入注册表中
             gMap.put(registrant.getId(), lease);
+            // 添加到最近的注册队列里面去，以时间戳作为Key， 名称作为value，主要是为了运维界面的统计数据。
             recentRegisteredQueue.add(new Pair<Long, String>(
                     System.currentTimeMillis(),
                     registrant.getAppName() + "(" + registrant.getId() + ")"));
@@ -257,15 +266,20 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
 
             // If the lease is registered with UP status, set lease service up timestamp
             if (InstanceStatus.UP.equals(registrant.getStatus())) {
+                // 设置租债对象状态
                 lease.serviceUp();
             }
+            // 设置实例信息对象动作类型为新增
             registrant.setActionType(ActionType.ADDED);
+            // 租约变更记录队列，记录了实例的每次变化， 用于注册信息的增量获取
             recentlyChangedQueue.add(new RecentlyChangedItem(lease));
             registrant.setLastUpdatedTimestamp();
+            // 清理缓存 ，传入的参数为key
             invalidateCache(registrant.getAppName(), registrant.getVIPAddress(), registrant.getSecureVipAddress());
             logger.info("Registered instance {}/{} with status {} (replication={})",
                     registrant.getAppName(), registrant.getId(), registrant.getStatus(), isReplication);
         } finally {
+            // 解锁
             read.unlock();
         }
     }
@@ -1186,6 +1200,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
     }
 
     protected void updateRenewsPerMinThreshold() {
+        // 更新期望每分钟收到客户端实例续约的总数：2 × n × 0.85
         this.numberOfRenewsPerMinThreshold = (int) (this.expectedNumberOfClientsSendingRenews
                 * (60.0 / serverConfig.getExpectedClientRenewalIntervalSeconds())
                 * serverConfig.getRenewalPercentThreshold());
@@ -1210,11 +1225,14 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
     }
 
     protected void postInit() {
+        // 最小续约开启
         renewsLastMin.start();
         if (evictionTaskRef.get() != null) {
             evictionTaskRef.get().cancel();
         }
+        // 设置服务剔除任务
         evictionTaskRef.set(new EvictionTask());
+        // 开启服务剔除任务任务：每60s执行一次
         evictionTimer.schedule(evictionTaskRef.get(),
                 serverConfig.getEvictionIntervalTimerInMs(),
                 serverConfig.getEvictionIntervalTimerInMs());
@@ -1245,6 +1263,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
             try {
                 long compensationTimeMs = getCompensationTimeMs();
                 logger.info("Running the evict task with compensationTime {}ms", compensationTimeMs);
+                // 剔除服务
                 evict(compensationTimeMs);
             } catch (Throwable e) {
                 logger.error("Could not run the evict task", e);

@@ -138,6 +138,7 @@ public class InstanceInfo {
     private volatile String hostName;
     private volatile InstanceStatus status = InstanceStatus.UP;
     private volatile InstanceStatus overriddenStatus = InstanceStatus.UNKNOWN;
+    // 实例数据是否是脏数据，过期数据
     @XStreamOmitField
     private volatile boolean isInstanceInfoDirty = false;
     private volatile LeaseInfo leaseInfo;
@@ -147,6 +148,7 @@ public class InstanceInfo {
     private volatile Map<String, String> metadata;
     @Auto
     private volatile Long lastUpdatedTimestamp;
+    // 最后过期时间戳
     @Auto
     private volatile Long lastDirtyTimestamp;
     @Auto

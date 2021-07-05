@@ -48,12 +48,15 @@ public class MeasuredRate {
 
     public synchronized void start() {
         if (!isActive) {
+            // 设置定时任务任务：每60s执行一次
             timer.schedule(new TimerTask() {
 
                 @Override
                 public void run() {
                     try {
                         // Zero out the current bucket.
+                        // currentBucket 当前桶设置0，并返回原值
+                        // lastBucket 设置最后一次桶的值
                         lastBucket.set(currentBucket.getAndSet(0));
                     } catch (Throwable e) {
                         logger.error("Cannot reset the Measured Rate", e);

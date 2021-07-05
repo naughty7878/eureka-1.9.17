@@ -389,12 +389,14 @@ public class DiscoveryClient implements EurekaClient {
 
         try {
             // default size of 2 - 1 each for heartbeat and cacheRefresh
+            // 初始化计划任务执行器
             scheduler = Executors.newScheduledThreadPool(2,
                     new ThreadFactoryBuilder()
                             .setNameFormat("DiscoveryClient-%d")
                             .setDaemon(true)
                             .build());
 
+            // 初始化心跳执行器
             heartbeatExecutor = new ThreadPoolExecutor(
                     1, clientConfig.getHeartbeatExecutorThreadPoolSize(), 0, TimeUnit.SECONDS,
                     new SynchronousQueue<Runnable>(),
@@ -404,6 +406,7 @@ public class DiscoveryClient implements EurekaClient {
                             .build()
             );  // use direct handoff
 
+            // 初始化缓冲刷新执行器
             cacheRefreshExecutor = new ThreadPoolExecutor(
                     1, clientConfig.getCacheRefreshExecutorThreadPoolSize(), 0, TimeUnit.SECONDS,
                     new SynchronousQueue<Runnable>(),
@@ -412,8 +415,9 @@ public class DiscoveryClient implements EurekaClient {
                             .setDaemon(true)
                             .build()
             );  // use direct handoff
-
+            // 创建Eureka传输对象
             eurekaTransport = new EurekaTransport();
+            // 给Eureka传输对象设置属性等
             scheduleServerEndpointTask(eurekaTransport, args);
 
             AzToRegionMapper azToRegionMapper;
@@ -451,6 +455,7 @@ public class DiscoveryClient implements EurekaClient {
         }
 
         // finally, init the schedule tasks (e.g. cluster resolvers, heartbeat, instanceInfo replicator, fetch
+        // 初始化计划任务
         initScheduledTasks();
 
         try {
@@ -537,11 +542,13 @@ public class DiscoveryClient implements EurekaClient {
                         eurekaTransport.transportClientFactory,
                         transportConfig
                 );
+                // 创建一个新的注册客户端
                 newRegistrationClient = newRegistrationClientFactory.newClient();
             } catch (Exception e) {
                 logger.warn("Transport initialization failure", e);
             }
             eurekaTransport.registrationClientFactory = newRegistrationClientFactory;
+            // 设置Eureka传输对象的 注册客户端
             eurekaTransport.registrationClient = newRegistrationClient;
         }
 
@@ -1270,10 +1277,13 @@ public class DiscoveryClient implements EurekaClient {
      * Initializes all scheduled tasks.
      */
     private void initScheduledTasks() {
+        // 是否从Eureka Server抓去已有的注册信息，默认是true
         if (clientConfig.shouldFetchRegistry()) {
             // registry cache refresh timer
+            // 刷新时间间隔 30s
             int registryFetchIntervalSeconds = clientConfig.getRegistryFetchIntervalSeconds();
             int expBackOffBound = clientConfig.getCacheRefreshExecutorExponentialBackOffBound();
+            // 创建缓冲刷新任务
             cacheRefreshTask = new TimedSupervisorTask(
                     "cacheRefresh",
                     scheduler,
@@ -1283,17 +1293,19 @@ public class DiscoveryClient implements EurekaClient {
                     expBackOffBound,
                     new CacheRefreshThread()
             );
+            // 添加到计划任务中
             scheduler.schedule(
                     cacheRefreshTask,
                     registryFetchIntervalSeconds, TimeUnit.SECONDS);
         }
-
+        // 是否注册到Eureka中，默认是true
         if (clientConfig.shouldRegisterWithEureka()) {
             int renewalIntervalInSecs = instanceInfo.getLeaseInfo().getRenewalIntervalInSecs();
             int expBackOffBound = clientConfig.getHeartbeatExecutorExponentialBackOffBound();
             logger.info("Starting heartbeat executor: " + "renew interval is: {}", renewalIntervalInSecs);
 
             // Heartbeat timer
+            // 创建心跳续约任务
             heartbeatTask = new TimedSupervisorTask(
                     "heartbeat",
                     scheduler,
@@ -1303,17 +1315,19 @@ public class DiscoveryClient implements EurekaClient {
                     expBackOffBound,
                     new HeartbeatThread()
             );
+            // 心跳续约任务添加到计划任务中，刷新时间间隔30s
             scheduler.schedule(
                     heartbeatTask,
                     renewalIntervalInSecs, TimeUnit.SECONDS);
 
             // InstanceInfo replicator
+            // 实例信息替换器
             instanceInfoReplicator = new InstanceInfoReplicator(
                     this,
                     instanceInfo,
                     clientConfig.getInstanceInfoReplicationIntervalSeconds(),
                     2); // burstSize
-
+            // 状态改变监听器
             statusChangeListener = new ApplicationInfoManager.StatusChangeListener() {
                 @Override
                 public String getId() {
@@ -1329,6 +1343,7 @@ public class DiscoveryClient implements EurekaClient {
                     } else {
                         logger.info("Saw local status change event {}", statusChangeEvent);
                     }
+                    // 动态更新
                     instanceInfoReplicator.onDemandUpdate();
                 }
             };
@@ -1411,11 +1426,14 @@ public class DiscoveryClient implements EurekaClient {
      * isDirty flag on the instanceInfo is set to true
      */
     void refreshInstanceInfo() {
+        // 刷新数据中心信息
         applicationInfoManager.refreshDataCenterInfoIfRequired();
+        // 刷新租债器
         applicationInfoManager.refreshLeaseInfoIfRequired();
 
         InstanceStatus status;
         try {
+            // 获取状态
             status = getHealthCheckHandler().getStatus(instanceInfo.getStatus());
         } catch (Exception e) {
             logger.warn("Exception from healthcheckHandler.getStatus, setting status to DOWN", e);
@@ -1423,6 +1441,7 @@ public class DiscoveryClient implements EurekaClient {
         }
 
         if (null != status) {
+            // 设置状态
             applicationInfoManager.setInstanceStatus(status);
         }
     }

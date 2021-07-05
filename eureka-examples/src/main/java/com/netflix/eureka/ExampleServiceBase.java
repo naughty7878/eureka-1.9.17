@@ -32,8 +32,11 @@ public class ExampleServiceBase {
     public ExampleServiceBase(ApplicationInfoManager applicationInfoManager,
                               EurekaClient eurekaClient,
                               DynamicPropertyFactory configInstance) {
+        // 应用信息管理器
         this.applicationInfoManager = applicationInfoManager;
+        // Eureka客户端
         this.eurekaClient = eurekaClient;
+        // 配置实例
         this.configInstance = configInstance;
     }
 
@@ -54,6 +57,7 @@ public class ExampleServiceBase {
         // Now we change our status to UP
         System.out.println("Done sleeping, now changing status to UP");
         applicationInfoManager.setInstanceStatus(InstanceInfo.InstanceStatus.UP);
+        //  等待注册Eureka
         waitForRegistrationWithEureka(eurekaClient);
         System.out.println("Service started and ready to process requests..");
 
@@ -88,8 +92,10 @@ public class ExampleServiceBase {
         // my vip address to listen on
         String vipAddress = configInstance.getStringProperty("eureka.vipAddress", "sampleservice.mydomain.net").get();
         InstanceInfo nextServerInfo = null;
+        // 循环
         while (nextServerInfo == null) {
             try {
+                // 下一个服务信息
                 nextServerInfo = eurekaClient.getNextServerFromEureka(vipAddress, false);
             } catch (Throwable e) {
                 System.out.println("Waiting ... verifying service registration with eureka ...");
